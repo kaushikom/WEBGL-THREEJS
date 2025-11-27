@@ -531,19 +531,20 @@ const IsometricScene = ({
   bulgeHeight = 0.8,
 }) => {
   const mainMeshRef = useRef();
-  const [hoverPoint, setHoverPoint] = useState(
-    new THREE.Vector3(100, 100, 100)
-  );
-  const [isHovered, setIsHovered] = useState(false);
+
+  // 1. FIXED: Use useRef for EVERYTHING involved in the animation loop
+  // This bypasses the React render cycle completely for performance
+  const hoverPoint = useRef(new THREE.Vector3(0, 0, 0));
+  const isHoveredRef = useRef(false); // <--- Key fix: No more useState here
   const isFirstHover = useRef(true);
 
   const { texture: mainTexture } = useTextureLoader(mainImagePath);
   const { texture: shadowTexture } = useTextureLoader(shadowImagePath);
 
-  // Main material uniforms - with displacement
   const mainUniforms = useMemo(
     () => ({
       uTexture: { value: mainTexture },
+      // Initialize effectively "off screen" but using the ref prevents the jump
       uDisplacement: { value: new THREE.Vector3(100, 100, 100) },
       uColor: { value: new THREE.Color(0x000000) },
       uOpacity: { value: 1.0 },
@@ -553,7 +554,6 @@ const IsometricScene = ({
     [mainTexture]
   );
 
-  // Shadow material uniforms
   const shadowUniforms = useMemo(
     () => ({
       uTexture: { value: shadowTexture },
@@ -563,7 +563,6 @@ const IsometricScene = ({
     [shadowTexture]
   );
 
-  // Update uniforms when props change
   useEffect(() => {
     if (mainMeshRef.current) {
       mainMeshRef.current.material.uniforms.uBulgeRadius.value = bulgeRadius;
@@ -571,44 +570,44 @@ const IsometricScene = ({
     }
   }, [bulgeRadius, bulgeHeight]);
 
-  // Animation frame
   useFrame(() => {
     if (mainMeshRef.current) {
-      if (isHovered) {
+      // 2. FIXED: Read from the refs immediately
+      if (isHoveredRef.current) {
         if (isFirstHover.current) {
-          // On first hover, set position immediately without lerp
+          // SNAP to position instantly on first frame
           mainMeshRef.current.material.uniforms.uDisplacement.value.copy(
-            hoverPoint
+            hoverPoint.current
           );
           isFirstHover.current = false;
         } else {
-          // After first hover, smoothly interpolate
+          // SMOOTHLY follow afterwards
           mainMeshRef.current.material.uniforms.uDisplacement.value.lerp(
-            hoverPoint,
+            hoverPoint.current,
             0.1
           );
         }
       } else {
-        mainMeshRef.current.material.uniforms.uDisplacement.value.set(
-          100,
-          100,
-          100
+        // When leaving, snap away or lerp away.
+        // To prevent the "fly in" on return, we reset isFirstHover in the event handler.
+        mainMeshRef.current.material.uniforms.uDisplacement.value.lerp(
+          new THREE.Vector3(100, 100, 100),
+          0.1
         );
       }
     }
   });
 
-  // Event handlers
   const handlePointerMove = (event) => {
     event.stopPropagation();
-    setHoverPoint(event.point);
-    setIsHovered(true);
+    // 3. FIXED: Update Refs directly. No state updates = No lag.
+    hoverPoint.current.copy(event.point);
+    isHoveredRef.current = true;
   };
 
   const handlePointerLeave = () => {
-    setIsHovered(false);
-    setHoverPoint(new THREE.Vector3(100, 100, 100));
-    isFirstHover.current = true; // Reset for next hover
+    isHoveredRef.current = false;
+    isFirstHover.current = true; // Ensures we snap again next time we enter
   };
 
   if (!mainTexture || !shadowTexture) {
@@ -617,7 +616,6 @@ const IsometricScene = ({
 
   return (
     <group>
-      {/* Shadow Layer - at same Z position as main layer */}
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[width, height, 1, 1]} />
         <shaderMaterial
@@ -630,7 +628,6 @@ const IsometricScene = ({
         />
       </mesh>
 
-      {/* Main Layer - at same Z position, will bulge upward on hover */}
       <mesh
         ref={mainMeshRef}
         position={[0, 0, 0]}
