@@ -523,8 +523,8 @@ const CameraController = ({ cameraSettings }) => {
 };
 
 const IsometricScene = ({
-  mainImagePath = "/assets/text-main.png",
-  shadowImagePath = "/assets/text-shadow.png",
+  mainImagePath = "/assets/text-main3.png",
+  shadowImagePath = "/assets/text-shadow3.png",
   width = 10,
   height = 10,
   bulgeRadius = 3.0,
@@ -764,8 +764,8 @@ export default function App() {
 
   // Bulge settings state
   const [bulgeSettings, setBulgeSettings] = useState({
-    radius: 3.0,
-    height: 0.8,
+    radius: 1.6,
+    height: 0.5,
   });
 
   return (
@@ -778,10 +778,10 @@ export default function App() {
       }}
     >
       {/* Bulge Controls */}
-      <BulgeControls
+      {/* <BulgeControls
         bulgeSettings={bulgeSettings}
         setBulgeSettings={setBulgeSettings}
-      />
+      /> */}
 
       <Canvas
         orthographic
